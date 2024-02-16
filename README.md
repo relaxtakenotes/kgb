@@ -20,3 +20,5 @@
 ![Команды](https://i.rlxx.ru/Oe96xCxI/raw.png)
 
 ![Функционал](https://i.rlxx.ru/4GHKVTMn/raw.png)
+
+![Ещё функционал](https://i.rlxx.ru/lwRyOEUw/raw.png)
