@@ -1,6 +1,6 @@
 import discord
 
-from schedule import get_lessons, get_formatted_lessons, streams_inverse, get_week_start, get_week_end
+from schedule import get_lessons, get_formatted_lessons, streams_inverse, get_week_start, get_week_end, subgroups
 from utility import async_wrap, textwrap, write_internal, get_internal, get_text_difference, log
 from ansi import ansi, ansi_reset, ansi_wrap
 import json
@@ -77,8 +77,8 @@ async def cmd_get_schedule(message, args):
 async def cmd_get_streams(message, args):
     output = []
 
-    for name, num in streams_inverse.items():
-        output.append(name)
+    for stream_name, substreams in subgroups.items():
+        output.append(f"{stream_name}: {', '.join(substreams)}")
 
     for block in textwrap("\n".join(output)):
         await message.channel.send(block)
