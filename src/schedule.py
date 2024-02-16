@@ -2,6 +2,7 @@ import httpx
 
 from datetime import date, timedelta, datetime
 from ansi import ansi, ansi_reset
+from utility import async_wrap
 import json
 
 streams = {
@@ -91,21 +92,29 @@ week_ordinal = {
 }
 week_ordinal_inverse = {v: k for k, v in week_ordinal.items()}
 
-def get_week_start(desired_date):
+def get_week_start(desired_date, ret_obj = False):
     if desired_date != "current":
         today = datetime.strptime(desired_date, "%d.%m.%Y").date()
     else:
         today = date.today() + timedelta(days=1)
     start = today - timedelta(days=today.weekday())
+
+    if ret_obj:
+        return start
+
     return start.strftime('%d.%m.%Y')
 
-def get_week_end(desired_date):
+def get_week_end(desired_date, ret_obj = False):
     if desired_date != "current":
         today = datetime.strptime(desired_date, "%d.%m.%Y").date()
     else:
         today = date.today() + timedelta(days=1)
     start = today - timedelta(days=today.weekday())
     end = start + timedelta(days=6)
+
+    if ret_obj:
+        return end
+
     return end.strftime('%d.%m.%Y')
 
 def get_lessons(stream, term, date = "current"):
@@ -119,8 +128,14 @@ def get_lessons(stream, term, date = "current"):
 
     return json.loads(response.text)
 
-def get_formatted_lessons(lessons, subgroup = None, output_teachers = False):
+@async_wrap
+def get_lessons_async(stream, term, date = "current"):
+    return get_lessons(stream, term, date)
+
+def get_formatted_lessons(lessons, subgroup = None, output_teachers = False, date = "current"):
     sorted_lessons = [{}] * 6
+
+    week_start = get_week_start(date, ret_obj = True)
 
     for lesson in lessons:
         weekday_name = lesson.get("weekday_name") # день недели (Понедельник, Вторник и т.д)
@@ -134,13 +149,11 @@ def get_formatted_lessons(lessons, subgroup = None, output_teachers = False):
         stream_id = lesson.get("stream_id") # номер потока
         classtype_id = lesson.get("classtype_id") # тип занятия
         building_name = lesson.get("building_name") # здание (главный корпус, спортивный комплекс или что-то другое)
+        date_start = lesson.get("date_start_text")
 
         # https://psi.thinkery.ru/shedule/public/public_shedule_spo_grid -> raw response -> примерно на строчках 200
         if classtype_id not in [1,2,3,4] and (subgroup != None and subgroup_name != subgroup):
             continue
-
-        #if discipline_name == "Физика":
-        #    continue
 
         week_offset = week_ordinal.get(weekday_name)
 
@@ -153,7 +166,7 @@ def get_formatted_lessons(lessons, subgroup = None, output_teachers = False):
         corrected_daytime_ord = int(daytime_ord) - 1
 
         if corrected_daytime_ord < 0 or corrected_daytime_ord > 6:
-            return f"Неправильное количество лекций: ```{str(lesson)}```"
+            continue
         
         sorted_lessons[week_offset][corrected_daytime_ord] = {
             "daytime_start": daytime_start,
@@ -170,7 +183,8 @@ def get_formatted_lessons(lessons, subgroup = None, output_teachers = False):
     for i in range(len(sorted_lessons)):
         day = sorted_lessons[i]
 
-        output += f"{week_ordinal_inverse[i]}: \n"
+        output += f"[{(week_start + timedelta(days=i)).strftime('%d.%m.%Y')}] {week_ordinal_inverse[i]}: \n"
+
         for j in range(len(day)):
             lesson = day[j]
 

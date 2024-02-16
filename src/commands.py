@@ -1,16 +1,12 @@
 import discord
 
-from schedule import get_lessons, get_formatted_lessons, streams_inverse, get_week_start, get_week_end, subgroups
-from utility import async_wrap, textwrap, write_internal, get_internal, get_text_difference, log
+from schedule import get_lessons_async, get_formatted_lessons, streams_inverse, get_week_start, get_week_end, subgroups
+from utility import textwrap, write_internal, get_internal, get_text_difference, log
 from ansi import ansi, ansi_reset, ansi_wrap
 import json
 
 config = None
 client = None
-
-@async_wrap
-def get_lessons_async(stream, term, date = "current"):
-    return get_lessons(stream, term, date)
 
 commands = {
     "user": {},
@@ -69,7 +65,7 @@ async def cmd_get_schedule(message, args):
         target_day = args[3]
 
     lessons = await get_lessons_async(stream = streams_inverse.get(stream_str), term = config["term"], date = target_day)
-    output = f"Расписание для группы {stream_str} ({subgroup}) [{get_week_start(target_day)} - {get_week_end(target_day)}] \n\n" + get_formatted_lessons(lessons = lessons, subgroup = subgroup, output_teachers = output_teachers)
+    output = f"Расписание для группы {stream_str} ({subgroup}) [{get_week_start(target_day)} - {get_week_end(target_day)}] \n\n" + get_formatted_lessons(lessons = lessons, subgroup = subgroup, output_teachers = output_teachers, date = target_day)
 
     for block in textwrap(output):
         await message.channel.send(block)
@@ -134,7 +130,7 @@ async def cmd_force_schedule_update(message, args):
                 output += ansi.normal.fg.red + line + ansi_reset + "\n"
                 diff_count += 1
             elif line.startswith("+"):
-                output += ansi.normal.fg.green + line + ansi_reset + "\n"
+                output += ansi.bold.fg.green + line + ansi_reset + "\n"
                 diff_count += 1
             elif line.startswith("?"):
                 pass
