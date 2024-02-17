@@ -1,7 +1,12 @@
+from infi.systray import SysTrayIcon
 from discord.ext import tasks
 import discord
 
+from platform import system
 from traceback import format_exc
+from threading import Thread
+from utility import log
+import os
 import json
 import commands
 
@@ -22,7 +27,7 @@ async def schedule_watcher():
     try:
         await commands.cmd_force_schedule_update(None, None)
     except Exception:
-        log(f"schedule_watcher: {format_exc()}")
+        log(f"[EXCEPTION] schedule_watcher: {format_exc()}")
 
 @client.event
 async def on_message(message):
@@ -31,13 +36,20 @@ async def on_message(message):
             await commands.handle_admin_commands(message)
             await commands.handle_user_commands(message)
     except Exception:
-        log(f"on_message: {format_exc()}")
+        log(f"[EXCEPTION] on_message: {format_exc()}")
 
 @client.event
 async def on_ready():
     schedule_watcher.start()
 
-    print(f"Logged in as {client.user} (ID: {client.user.id})")     
+    if system() == "Windows":
+        def on_quit_callback(systray):
+            os._exit(0)
+        
+        systray = SysTrayIcon(None, "KGB", None, on_quit=on_quit_callback)
+        systray.start()
+
+    log(f"[INFO] Logged in as {client.user} (ID: {client.user.id})")     
 
 if __name__ == "__main__":
 	client.run(config["token"])
