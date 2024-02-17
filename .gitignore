@@ -2,3 +2,4 @@ src/config.json
 src/internal.json
 src/problems.log
 build/
+src/__pycache__
