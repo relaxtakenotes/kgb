@@ -1,9 +1,8 @@
 import discord
 
 from schedule import get_lessons_async, get_formatted_lessons, streams_inverse, get_week_start, get_week_end, subgroups
-from utility import textwrap, write_internal, get_internal, get_text_difference, log
+from utility import textwrap, write_internal, get_internal, get_text_difference
 from ansi import ansi, ansi_reset, ansi_wrap
-import json
 
 config = None
 client = None

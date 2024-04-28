@@ -1,7 +1,6 @@
 import httpx
 
 from datetime import date, timedelta, datetime
-from ansi import ansi, ansi_reset
 from utility import async_wrap
 import json
 
@@ -92,11 +91,15 @@ week_ordinal = {
 }
 week_ordinal_inverse = {v: k for k, v in week_ordinal.items()}
 
+combine = {
+    "ИСП-9-1": {"ИСП-9-11а": True}
+}
+
 def get_week_start(desired_date, ret_obj = False):
     if desired_date != "current":
         today = datetime.strptime(desired_date, "%d.%m.%Y").date()
     else:
-        today = date.today() + timedelta(days=1)
+        today = date.today() + timedelta(days=1, hours=4)
     start = today - timedelta(days=today.weekday())
 
     if ret_obj:
@@ -108,7 +111,7 @@ def get_week_end(desired_date, ret_obj = False):
     if desired_date != "current":
         today = datetime.strptime(desired_date, "%d.%m.%Y").date()
     else:
-        today = date.today() + timedelta(days=1)
+        today = date.today() + timedelta(days=1, hours=4)
     start = today - timedelta(days=today.weekday())
     end = start + timedelta(days=6)
 
@@ -135,6 +138,8 @@ def get_lessons_async(stream, term, date = "current"):
 def get_formatted_lessons(lessons, subgroup = None, output_teachers = False, date = "current"):
     sorted_lessons = [{}] * 6
 
+    sorted_lessons_isp_workaround = [{}] * 6
+
     week_start = get_week_start(date, ret_obj = True)
 
     for lesson in lessons:
@@ -149,16 +154,23 @@ def get_formatted_lessons(lessons, subgroup = None, output_teachers = False, dat
         stream_id = lesson.get("stream_id") # номер потока
         classtype_id = lesson.get("classtype_id") # тип занятия
         building_name = lesson.get("building_name") # здание (главный корпус, спортивный комплекс или что-то другое)
-        date_start = lesson.get("date_start_text")
 
         # https://psi.thinkery.ru/shedule/public/public_shedule_spo_grid -> raw response -> примерно на строчках 200
-        if classtype_id not in [1,2,3,4] and (subgroup != None and subgroup_name != subgroup):
+        
+        exclusion = combine.get(streams[stream_id])
+
+        if not exclusion and classtype_id not in [1,2,4] and (subgroup != None and subgroup_name != subgroup):
             continue
+
+        #discipline_name += f"[{classtype_id=}, {subgroup=}, {subgroup_name=}]"
 
         week_offset = week_ordinal.get(weekday_name)
 
         if not sorted_lessons[week_offset]:
             sorted_lessons[week_offset] = [{}] * 7
+        
+        if not sorted_lessons_isp_workaround[week_offset]:
+            sorted_lessons_isp_workaround[week_offset] = [{}] * 7
         
         if building_name != "Главный корпус":
             cabinet_number = building_name
@@ -167,14 +179,23 @@ def get_formatted_lessons(lessons, subgroup = None, output_teachers = False, dat
 
         if corrected_daytime_ord < 0 or corrected_daytime_ord > 6:
             continue
-        
-        sorted_lessons[week_offset][corrected_daytime_ord] = {
-            "daytime_start": daytime_start,
-            "daytime_end": daytime_end,
-            "teacher_fio": teacher_fio,
-            "discipline_name": discipline_name,
-            "cabinet_number": cabinet_number
-        }
+
+        if not exclusion or exclusion.get(subgroup_name):
+            sorted_lessons[week_offset][corrected_daytime_ord] = {
+                "daytime_start": daytime_start,
+                "daytime_end": daytime_end,
+                "teacher_fio": teacher_fio,
+                "discipline_name": discipline_name,
+                "cabinet_number": cabinet_number,
+            }
+        else:
+            sorted_lessons_isp_workaround[week_offset][corrected_daytime_ord] = {
+                "daytime_start": daytime_start,
+                "daytime_end": daytime_end,
+                "teacher_fio": teacher_fio,
+                "discipline_name": discipline_name,
+                "cabinet_number": cabinet_number,
+            }
     
     output = ""
 
@@ -189,10 +210,29 @@ def get_formatted_lessons(lessons, subgroup = None, output_teachers = False, dat
             lesson = day[j]
 
             if not lesson.get('discipline_name'):
-                output += f"\t{j + 1}: ...\n"
+                output += f"\t{j + 1}: ..."
+
+                try:
+                    if sorted_lessons_isp_workaround[i][j]:
+                        other_lesson = sorted_lessons_isp_workaround[i][j]
+                        output += f" // (Б ГРУППА) [{other_lesson.get('cabinet_number')}] {other_lesson.get('discipline_name', '...')} ({other_lesson.get('daytime_start')} - {other_lesson.get('daytime_end')})"
+                except (IndexError, KeyError):
+                    pass
+
+                output += "\n"
+                
                 continue
             
-            output += f"\t{j + 1}: [{lesson.get('cabinet_number')}] {lesson.get('discipline_name', '...')} ({lesson.get('daytime_start')} - {lesson.get('daytime_end')}) \n"
+            output += f"\t{j + 1}: [{lesson.get('cabinet_number')}] {lesson.get('discipline_name', '...')} ({lesson.get('daytime_start')} - {lesson.get('daytime_end')})"
+
+            try:
+                if sorted_lessons_isp_workaround[i][j]:
+                    other_lesson = sorted_lessons_isp_workaround[i][j]
+                    output += f" // (Б ГРУППА) [{other_lesson.get('cabinet_number')}] {other_lesson.get('discipline_name', '...')} ({other_lesson.get('daytime_start')} - {other_lesson.get('daytime_end')})"
+            except (IndexError, KeyError):
+                pass
+
+            output += "\n"
 
             names.append(f"{lesson.get('discipline_name')}: {lesson.get('teacher_fio')}")
 

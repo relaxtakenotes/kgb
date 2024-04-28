@@ -4,13 +4,12 @@ import discord
 
 from platform import system
 from traceback import format_exc
-from threading import Thread
 from utility import log
 import os
 import json
 import commands
 
-with open("config.json") as f:
+with open("config.json", encoding="utf-8") as f:
 	config = json.load(f)
 
 intents = discord.Intents.default()
